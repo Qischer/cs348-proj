@@ -1,0 +1,248 @@
+package index
+
+import (
+  "Qischer/cs348-proj/model"
+  "fmt"
+)
+
+templ Index(playlists []model.Playlist, tracks []model.Track) {
+  @Sidebar(playlists)
+  @MySongs(tracks, playlists)
+}
+
+templ PlaylistPage(playlists []model.Playlist, focus model.Playlist, tracks []model.Track) {
+  <script>
+    function deletePlaylist(id) {
+      fetch(`/delete-playlist/${id}`, { method: "DELETE" })
+        .then(response => {
+          if (response.ok) {
+            window.location.replace("/");
+          } else {
+            console.error("Failed to delete playlist");
+          }
+      });
+    }
+  </script>
+
+  @Sidebar(playlists)
+  <div class="max-w-lg w-full bg-white shadow-lg rounded-2xl p-5 m-5">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h3 class="text-lg font-medium text-gray-800">{focus.Name}</h3>
+        <p class="text-gray-600 text-sm">{focus.Description}</p>
+      </div>
+      <div class="flex space-x-2">
+        <a href={templ.URL(fmt.Sprintf("/edit-playlist/%d", focus.ID))} class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg">Edit</a>
+        <button onclick={templ.JSFuncCall("deletePlaylist", focus.ID)} class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Delete</button>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      for _, track := range tracks {
+        <div>
+          @Card(track, playlists)
+        </div>
+      }
+    </div>
+  </div>
+}
+
+templ CreatePlaylist() {
+  <div class="max-w-md w-full bg-white shadow-lg rounded-2xl p-5">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Create New Playlist</h2>
+    <form action="/submit-playlist" method="POST" class="space-y-4">
+      <div>
+        <label for="name" class="block text-gray-700 font-medium">Playlist Name</label>
+        <input type="text" id="name" name="name" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div>
+        <label for="description" class="block text-gray-700 font-medium">Description</label>
+        <textarea id="description" name="description" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+      <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Create Playlist</button>
+    </form>
+    <a href="/" class="block text-center text-blue-500 hover:underline mt-4">Back to Playlists</a>
+  </div>
+}
+
+templ UpdatePlaylist(id int) {
+  <div class="max-w-md w-full bg-white shadow-lg rounded-2xl p-5">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Update Playlist</h2>
+    <form 
+      action={templ.URL(fmt.Sprintf("/update-playlist/%d", id))}
+      method="POST" class="space-y-4">
+      <div>
+        <label for="name" class="block text-gray-700 font-medium">Playlist Name</label>
+        <input type="text" id="name" name="name" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div>
+        <label for="description" class="block text-gray-700 font-medium">Description</label>
+        <textarea id="description" name="description" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </div>
+      <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">Update</button>
+    </form>
+    <a href="/" class="block text-center text-blue-500 hover:underline mt-4">Back to Playlists</a>
+  </div>
+}
+
+templ Sidebar(playlists []model.Playlist) {
+  <aside class="w-64 bg-white shadow-lg p-5 flex flex-col">
+    <h2 class="text-xl font-semibold text-gray-800 mb-4">Playlists</h2>
+    <ul class="space-y-2">
+      for _, p := range playlists {
+        <li class="p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-200">
+          <a href={templ.URL(fmt.Sprintf("/p/%d", p.ID))}>
+            {p.Name}
+          </a>
+        </li>
+      }
+    </ul>
+    <a href="/create-playlist" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-center">Add New Playlist</a>
+    <a href="/tracks-report" class="mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-center">View Tracks Report</a>
+  </aside>
+}
+
+templ MySongs(tracks []model.Track, playlists []model.Playlist) {
+  <div class="max-w-lg w-full bg-white shadow-lg rounded-2xl p-5 m-5">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">My Songs</h2>
+    <div class="space-y-4">
+      for _, track := range tracks {
+        <div>
+          @Card(track, playlists)
+        </div>
+      }
+    </div>
+  </div>
+}
+
+templ Card(track model.Track, playlists []model.Playlist) {
+  <script>
+    function toggleDropdown(trackId) {
+      const dropdown = document.getElementById(`dropdown-${trackId}`);
+      dropdown.classList.toggle("hidden");
+    }
+
+    function addToPlaylist(trackId, playlistId) {
+      fetch(`/add-to-playlist`, {
+        method: "PUT",
+        headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ trackId, playlistId })})
+        .then(response => {
+          if (response.ok) {
+            console.log(`Track ${trackId} added to playlist ${playlistId}`);
+          } else {
+            console.error("Failed to add track to playlist");
+          }
+      });
+    }
+  </script>
+  <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow">
+      <div>
+          <h3 class="text-lg font-medium text-gray-800">{track.Title}</h3>
+          <p class="text-gray-600 text-sm">{track.Artist.Name}</p>
+      </div>
+      <div>
+          <div class="relative">
+            <button onclick={templ.JSFuncCall("toggleDropdown", track.ID)} class="text-gray-500 hover:text-gray-700">&#8226;&#8226;&#8226;</button>
+            <div id={fmt.Sprintf("dropdown-%d", track.ID)} class="hidden absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-10">
+
+              for _, p := range playlists {
+                <button onclick={templ.JSFuncCall("addToPlaylist", track.ID, p.ID)} class="block w-full text-left px-4 py-2 hover:bg-gray-200">{p.Name}</button>
+              }
+            </div>
+          </div>
+      </div>
+  </div>
+}
+
+templ TracksReport(tracks []model.Track, artists []model.Artist) {
+  <div class="max-w-4xl w-full bg-white shadow-lg rounded-2xl p-5 m-5">
+    <h2 class="text-2xl font-semibold text-gray-800 mb-4">Tracks Report</h2>
+    
+    <div class="mb-6 space-y-4">
+      <div class="flex space-x-4">
+        <div class="flex-1">
+          <label for="artist-filter" class="block text-sm font-medium text-gray-700">Filter by Artist</label>
+          <select id="artist-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+            <option value="">All Artists</option>
+            for _, artist := range artists {
+              <option value={artist.Name}>{artist.Name}</option>
+            }
+          </select>
+        </div>
+        <div class="flex-1">
+          <label for="duration-filter" class="block text-sm font-medium text-gray-700">Filter by Duration</label>
+          <select id="duration-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+            <option value="">All Durations</option>
+            <option value="medium">Medium (3-5 minutes)</option>
+            <option value="long">Long (> 5 minutes)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Artist</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Album</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          for _, track := range tracks {
+            <tr class="track-row" data-artist={track.Artist.Name} data-duration={fmt.Sprintf("%d", track.Duration)}>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{track.Title}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{track.Artist.Name}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{track.Album.Title}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fmt.Sprintf("%d:%02d", track.Duration/60, track.Duration%60)}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <script>
+      function filterTracks() {
+        const artistFilter = document.getElementById('artist-filter').value;
+        const durationFilter = document.getElementById('duration-filter').value;
+        const rows = document.querySelectorAll('.track-row');
+
+        rows.forEach(row => {
+          const artist = row.dataset.artist;
+          const duration = parseInt(row.dataset.duration);
+          
+          let showArtist = true;
+          let showDuration = true;
+
+          if (artistFilter && artist !== artistFilter) {
+            showArtist = false;
+          }
+
+          if (durationFilter) {
+            switch(durationFilter) {
+              case 'short':
+                showDuration = duration < 180;
+                break;
+              case 'medium':
+                showDuration = duration >= 180 && duration <= 300;
+                break;
+              case 'long':
+                showDuration = duration > 300;
+                break;
+            }
+          }
+
+          row.style.display = (showArtist && showDuration) ? '' : 'none';
+        });
+      }
+
+      document.getElementById('artist-filter').addEventListener('change', filterTracks);
+      document.getElementById('duration-filter').addEventListener('change', filterTracks);
+    </script>
+  </div>
+}
